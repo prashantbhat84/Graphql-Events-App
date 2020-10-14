@@ -1,0 +1,7 @@
+{
+  "env": {
+    "dbuser": "admin",
+    "dbpassword": "*Blore560001",
+    "dbname": "events-react-db"
+  }
+}
