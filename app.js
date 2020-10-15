@@ -3,6 +3,8 @@ import { graphqlHTTP } from 'express-graphql'
 import { buildSchema } from 'graphql'
 import mongoose from 'mongoose'
 import Event from './models/events.js';
+import User from './models/user.js'
+import bcrypt from 'bcryptjs'
 const port = 3000;
 const app = express();
 app.use(express.json());
@@ -16,17 +18,27 @@ type Event {
     price:Float!
     date:String!
 }
+type User {
+    _id:ID!
+    email:String!
+    password:String
+}
 input EventInput {
     title:String!
     description:String!
     price:Float!
     date:String!
 }
+input UserInput {
+    email:String!
+    password:String!
+}
 type RootQuery {
     events: [Event!]!
 }
 type RootMutation {
     createEvent(eventInput:EventInput): Event!
+    createUser(userInput:UserInput):User
 }
 schema {
     query: RootQuery
@@ -53,15 +65,42 @@ app.use(
                         title: args.eventInput.title,
                         description: args.eventInput.description,
                         price: +args.eventInput.price,
-                        date: new Date(args.eventInput.date)
+                        date: new Date(args.eventInput.date),
+                        creator: '5f87c5dd6cea4127546344fa'
                     })
                     const result = await event.save();
+                    const user = await User.findById('5f87c5dd6cea4127546344fa');
+                    if (!user) {
+                        throw new Error("User does not exist")
+                    }
+                    user.createdEvents.push(event);
+                    await user.save();
+
                     return result;
                 } catch (error) {
-                    console.log(error.message);
+
                     return error.message
                 }
+            },
+            createUser: async (args) => {
+                try {
+                    const dbuser = await User.findOne({ email: args.userInput.email });
+                    if (dbuser) {
+                        throw new Error("User with this email already exists")
+                    }
+                    const hashedpassword = await bcrypt.hash(args.userInput.password, 12);
+                    const user = new User({
+                        email: args.userInput.email,
+                        password: hashedpassword
+                    });
+                    const result = await user.save();
+                    result.password = null;
+                    return result;
 
+                } catch (error) {
+                    throw new Error(error.message)
+
+                }
             }
         },
         graphiql: true
